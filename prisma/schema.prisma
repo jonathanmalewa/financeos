@@ -1,0 +1,202 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  STAFF
+}
+
+enum UserStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SUSPENDED
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  IN_REVIEW
+  DONE
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum NotificationType {
+  INFO
+  SUCCESS
+  WARNING
+  ERROR
+  TASK
+  ARCHIVE
+  CHAT
+  USER
+}
+
+model User {
+  id            String     @id @default(cuid())
+  name          String
+  email         String     @unique
+  password      String
+  role          Role       @default(STAFF)
+  status        UserStatus @default(PENDING)
+  avatar        String?
+  department    String?
+  phone         String?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  tasks              Task[]           @relation("AssignedTasks")
+  createdTasks       Task[]           @relation("CreatedTasks")
+  taskComments       TaskComment[]
+  archives           Archive[]
+  sentMessages       Message[]        @relation("SentMessages")
+  receivedMessages   Message[]        @relation("ReceivedMessages")
+  notifications      Notification[]
+  auditLogs          AuditLog[]
+  aiConversations    AIConversation[]
+  chatRoomMembers    ChatRoomMember[]
+}
+
+model Task {
+  id          String       @id @default(cuid())
+  title       String
+  description String?
+  status      TaskStatus   @default(TODO)
+  priority    TaskPriority @default(MEDIUM)
+  dueDate     DateTime?
+  tags        String?      // JSON array string
+  order       Int          @default(0)
+  
+  assigneeId  String?
+  assignee    User?        @relation("AssignedTasks", fields: [assigneeId], references: [id])
+  creatorId   String
+  creator     User         @relation("CreatedTasks", fields: [creatorId], references: [id])
+  
+  comments    TaskComment[]
+  
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+model TaskComment {
+  id        String   @id @default(cuid())
+  content   String
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+}
+
+model Archive {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  filename    String
+  fileUrl     String
+  fileType    String
+  fileSize    Int
+  tags        String?  // JSON array string
+  category    String?
+  divisi      String?
+  nomorArsip  String?  @unique
+  
+  uploaderId  String
+  uploader    User     @relation(fields: [uploaderId], references: [id])
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model ChatRoom {
+  id        String           @id @default(cuid())
+  name      String?
+  isGroup   Boolean          @default(false)
+  avatar    String?
+  createdAt DateTime         @default(now())
+  
+  members   ChatRoomMember[]
+  messages  Message[]
+}
+
+model ChatRoomMember {
+  id         String   @id @default(cuid())
+  roomId     String
+  room       ChatRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  joinedAt   DateTime @default(now())
+  
+  @@unique([roomId, userId])
+}
+
+model Message {
+  id         String   @id @default(cuid())
+  content    String
+  fileUrl    String?
+  fileType   String?
+  read       Boolean  @default(false)
+  
+  roomId     String
+  room       ChatRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  senderId   String
+  sender     User     @relation("SentMessages", fields: [senderId], references: [id])
+  receiverId String?
+  receiver   User?    @relation("ReceivedMessages", fields: [receiverId], references: [id])
+  
+  createdAt  DateTime @default(now())
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  title     String
+  message   String
+  type      NotificationType @default(INFO)
+  read      Boolean          @default(false)
+  link      String?
+  
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime         @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  action    String
+  target    String?
+  targetId  String?
+  metadata  String?  // JSON string
+  ipAddress String?
+  
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  
+  createdAt DateTime @default(now())
+}
+
+model AIConversation {
+  id        String   @id @default(cuid())
+  messages  String   // JSON array of {role, content}
+  
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
